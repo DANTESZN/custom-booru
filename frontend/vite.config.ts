@@ -4,6 +4,21 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
+	resolve: {
+		alias: {
+			'@gradio/client': '/app/node_modules/@gradio/client/dist/index.js'
+		}
+	},
+	optimizeDeps: {
+		include: ['@gradio/client'],
+		force: true
+	},
+	ssr: {
+		noExternal: ['@gradio/client']
+	},
+	define: {
+		global: 'globalThis'
+	},
 	test: {
 		projects: [
 			{

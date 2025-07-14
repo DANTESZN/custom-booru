@@ -45,7 +45,8 @@ class Api::V1::SearchController < Api::V1::BaseController
     # Sort options
     case params[:sort]
     when 'title'
-      images = images.order(:title)
+      # Sort by title, handling nulls by putting them at the end
+      images = images.order(Arel.sql('CASE WHEN title IS NULL OR title = \'\' THEN 1 ELSE 0 END, title ASC'))
     when 'oldest'
       images = images.order(:created_at)
     else
