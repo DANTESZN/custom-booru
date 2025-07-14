@@ -273,14 +273,14 @@
                 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {#each relationshipGroup.relationships as relationship}
                     <div class="group relative">
-                      <button 
-                        on:click={() => goto(`/aliases/${relationship.related_image_alias_id}/images/${relationship.related_image_id}`)}
+                      <button
+                        on:click={() => goto(`/aliases/${relationship.related_image.attributes.alias_id}/images/${relationship.related_image.id}`)}
                         class="block aspect-square rounded-lg overflow-hidden bg-gray-100 hover:shadow-lg transition-shadow cursor-pointer w-full"
                       >
-                        {#if relationship.related_image_file_url}
+                        {#if relationship.related_image.attributes.file_url}
                           <img
-                            src={relationship.related_image_file_url}
-                            alt={relationship.related_image_title}
+                            src={relationship.related_image.attributes.file_url}
+                            alt={relationship.related_image.attributes.title}
                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                           />
                         {:else}
