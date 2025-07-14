@@ -39,7 +39,22 @@ CustomBooru/
    ```bash
    bin/rails db:create db:migrate
    ```
-3. **Start the server**
+3. **Generate a secure JWT secret key:**
+   ```bash
+   ruby -rsecurerandom -e 'puts SecureRandom.hex(64)'
+   ```
+   Copy the output (a long random string).
+
+4. **Edit Rails credentials to add the secret:**
+   ```bash
+   bin/rails credentials:edit
+   ```
+   Add the following line (replace with your generated key):
+   ```yaml
+   devise_jwt_secret_key: your_generated_secret_key_here
+   ```
+   Save and close the editor.
+5. **Start the server**
    ```bash
    bin/rails server
    ```

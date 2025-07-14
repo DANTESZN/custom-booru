@@ -385,3 +385,25 @@ For issues and questions:
 ---
 
 **CustomBooru API** - Built with ❤️ using Rails, PostgreSQL, and modern web standards.
+
+## 🔑 Setting Up JWT Secret Key
+
+Before starting the server, you must set a JWT secret key in your Rails credentials. This is required for authentication to work.
+
+1. **Generate a secure JWT secret key:**
+   ```bash
+   ruby -rsecurerandom -e 'puts SecureRandom.hex(64)'
+   ```
+   Copy the output (a long random string).
+
+2. **Edit Rails credentials to add the secret:**
+   ```bash
+   bin/rails credentials:edit
+   ```
+   Add the following line (replace with your generated key):
+   ```yaml
+   devise_jwt_secret_key: your_generated_secret_key_here
+   ```
+   Save and close the editor.
+
+3. **Continue with the rest of the setup as described below.**
