@@ -10,7 +10,8 @@ class Users::SessionsController < Devise::SessionsController
       message: 'Successfully signed in',
       user: {
         id: resource.id,
-        email: resource.email
+        email: resource.email,
+        aliases: resource.aliases.select(:id, :name)
       }
     }, status: :ok
   end
@@ -31,7 +32,8 @@ class Users::SessionsController < Devise::SessionsController
       message: 'Successfully signed in',
       user: {
         id: resource.id,
-        email: resource.email
+        email: resource.email,
+        aliases: resource.aliases.select(:id, :name)
       }
     }, status: :ok
   end

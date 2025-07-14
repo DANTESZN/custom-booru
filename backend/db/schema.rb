@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_07_13_165853) do
+ActiveRecord::Schema[8.0].define(version: 2025_07_14_191735) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -51,6 +51,23 @@ ActiveRecord::Schema[8.0].define(version: 2025_07_13_165853) do
     t.datetime "updated_at", null: false
     t.index ["user_id", "name"], name: "index_aliases_on_user_id_and_name", unique: true
     t.index ["user_id"], name: "index_aliases_on_user_id"
+  end
+
+  create_table "image_relationships", force: :cascade do |t|
+    t.bigint "source_image_id", null: false
+    t.bigint "related_image_id", null: false
+    t.string "relationship_type", null: false
+    t.text "description"
+    t.integer "position", default: 0
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["related_image_id", "relationship_type"], name: "idx_on_related_image_id_relationship_type_e5e92fcb6a"
+    t.index ["related_image_id"], name: "index_image_relationships_on_related_image_id"
+    t.index ["source_image_id", "position"], name: "index_image_relationships_on_source_image_id_and_position"
+    t.index ["source_image_id", "related_image_id", "relationship_type"], name: "unique_image_relationship", unique: true
+    t.index ["source_image_id", "relationship_type"], name: "idx_on_source_image_id_relationship_type_0d76b627c8"
+    t.index ["source_image_id"], name: "index_image_relationships_on_source_image_id"
+    t.check_constraint "source_image_id <> related_image_id", name: "prevent_self_reference"
   end
 
   create_table "images", force: :cascade do |t|
@@ -96,5 +113,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_07_13_165853) do
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "aliases", "users"
+  add_foreign_key "image_relationships", "images", column: "related_image_id"
+  add_foreign_key "image_relationships", "images", column: "source_image_id"
   add_foreign_key "images", "aliases"
 end

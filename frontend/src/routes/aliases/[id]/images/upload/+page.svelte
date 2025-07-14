@@ -293,7 +293,7 @@
                         class="w-full text-left px-4 py-2 hover:bg-purple-50 flex justify-between items-center"
                       >
                         <span>{tag.attributes.name}</span>
-                        <span class="text-xs text-gray-500">({tag.attributes.images_count || 0} images)</span>
+                        <span class="text-xs text-gray-500">({tag.attributes.usage_count || 0} images)</span>
                       </button>
                     {/each}
                     <!-- Option to create new tag -->

@@ -1,6 +1,6 @@
 class Api::V1::ImagesController < Api::V1::BaseController
-  before_action :set_alias
-  before_action :set_image, only: [:show, :update, :destroy, :add_tags, :remove_tags]
+  before_action :set_alias, except: [:relationship_types]
+  before_action :set_image, only: [:show, :update, :destroy, :add_tags, :remove_tags, :relationships, :add_relationship, :remove_relationship]
 
   def index
     images = @alias.images.includes(:tags).order(created_at: :desc)
@@ -63,6 +63,102 @@ class Api::V1::ImagesController < Api::V1::BaseController
     @image.tags.delete(tags_to_remove)
     
     render_success(ImageSerializer.new(@image, include: [:tags]).serializable_hash[:data])
+  end
+
+  # GET /api/v1/aliases/:alias_id/images/:id/relationships
+  def relationships
+    relationships_data = @image.all_relationships.includes(:source_image, :related_image)
+    
+    # Group relationships by type
+    grouped_relationships = relationships_data.group_by(&:relationship_type)
+    
+    # Format response
+    response_data = grouped_relationships.map do |type, relationships|
+      {
+        type: type,
+        description: ImageRelationship.relationship_types[type],
+        relationships: relationships.map do |rel|
+          other_image = rel.source_image_id == @image.id ? rel.related_image : rel.source_image
+          {
+            id: rel.id,
+            related_image_id: other_image.id,
+            related_image_alias_id: other_image.alias_id,
+            related_image_title: other_image.title,
+            related_image_file_url: other_image.file.attached? ? 
+              Rails.application.routes.url_helpers.rails_blob_url(other_image.file, host: request.host_with_port, protocol: request.protocol.chomp('://')) : nil,
+            description: rel.description,
+            position: rel.position,
+            direction: rel.source_image_id == @image.id ? 'outgoing' : 'incoming'
+          }
+        end
+      }
+    end
+    
+    Rails.logger.info "RELATIONSHIP RESPONSE: #{response_data.to_json}"
+    render_success(response_data)
+  end
+
+  # POST /api/v1/aliases/:alias_id/images/:id/relationships
+  def add_relationship
+    related_image_id = params[:related_image_id]
+    relationship_type = params[:relationship_type]
+    description = params[:description]
+    
+    # Find the related image (must be from same alias for now, can be expanded later)
+    related_image = @alias.images.find(related_image_id)
+    
+    relationship = @image.add_relationship(
+      related_image, 
+      relationship_type, 
+      description: description
+    )
+    
+    if relationship
+      render_success({
+        message: 'Relationship created successfully',
+        relationship: {
+          id: relationship.id,
+          type: relationship.relationship_type,
+          description: relationship.description,
+          related_image: ImageSerializer.new(related_image).serializable_hash[:data]
+        }
+      }, status: :created)
+    else
+      render_error('Failed to create relationship', details: relationship.errors)
+    end
+  end
+
+  # DELETE /api/v1/aliases/:alias_id/images/:id/relationships/:relationship_id
+  def remove_relationship
+    relationship = @image.source_relationships.find(params[:relationship_id])
+    
+    if relationship.destroy
+      # Also remove reverse relationship if it exists
+      reverse_types = {
+        'sequel' => 'prequel',
+        'prequel' => 'sequel',
+        'inspiration' => 'reference',
+        'reference' => 'inspiration'
+      }
+      
+      if reverse_types.key?(relationship.relationship_type)
+        reverse_relationship = ImageRelationship.find_by(
+          source_image: relationship.related_image,
+          related_image: @image,
+          relationship_type: reverse_types[relationship.relationship_type]
+        )
+        reverse_relationship&.destroy
+      end
+      
+      render_success({ message: 'Relationship removed successfully' })
+    else
+      render_error('Failed to remove relationship')
+    end
+  end
+
+  # GET /api/v1/relationship_types
+  def relationship_types
+    render_success(ImageRelationship.relationship_types)
   end
 
   private

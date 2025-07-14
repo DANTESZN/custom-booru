@@ -29,7 +29,56 @@ CustomBooru/
 
 ## 🚀 Quick Start
 
-### Backend (API)
+### 🐳 Docker Development (Recommended)
+
+**Prerequisites:**
+- Docker and Docker Compose installed
+- Git (for cloning the repository)
+
+**Setup:**
+1. **Clone the repository**
+   ```bash
+   git clone <your-repo-url>
+   cd custom-booru
+   ```
+
+2. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   ```
+   Edit `.env` and add your Rails master key:
+   ```bash
+   # Generate a new Rails master key
+   cd backend && bin/rails credentials:edit
+   # Copy the master key from config/master.key to .env
+   ```
+
+3. **Start all services**
+   ```bash
+   docker-compose -f docker-compose.dev.yml up --build
+   ```
+
+4. **Initialize the database** (first time only)
+   ```bash
+   # In a new terminal, run database migrations
+   docker-compose -f docker-compose.dev.yml exec backend bin/rails db:create db:migrate
+   ```
+
+**Access the application:**
+- **Frontend**: http://localhost:4173
+- **Backend API**: http://localhost:3000
+- **PostgreSQL**: localhost:5434
+
+**Development workflow:**
+- Code changes are automatically reflected (hot reload)
+- Database data persists between container restarts
+- Use `docker-compose -f docker-compose.dev.yml down` to stop all services
+
+---
+
+### 📦 Manual Setup (Alternative)
+
+#### Backend (API)
 1. **Install dependencies**
    ```bash
    cd backend
@@ -60,7 +109,7 @@ CustomBooru/
    ```
    API available at `http://localhost:3000`
 
-### Frontend (Web App)
+#### Frontend (Web App)
 1. **Install dependencies**
    ```bash
    cd frontend

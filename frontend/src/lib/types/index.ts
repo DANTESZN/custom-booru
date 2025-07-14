@@ -13,7 +13,8 @@ export interface ApiResponse<T> {
 export interface User {
   id: string;
   email: string;
-  created_at: string;
+  created_at?: string;
+  aliases?: Array<{ id: string; name: string }>;
 }
 
 export interface Alias {

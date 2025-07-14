@@ -13,16 +13,20 @@ export const tagApi = {
       url += `&popular=true`;
     }
 
-    return apiClient.get<ApiResponse<JsonApiResource<Tag>[]>>(url);
+    return apiClient.get<ApiResponse<JsonApiResource<Tag>[]>>(url, false);
   },
 
   async getByName(name: string): Promise<JsonApiResource<Tag>> {
-    const response = await apiClient.get<{ data: JsonApiResource<Tag> }>(`/api/v1/tags/${encodeURIComponent(name)}`);
+    const response = await apiClient.get<{ data: JsonApiResource<Tag> }>(`/api/v1/tags/${encodeURIComponent(name)}`, false);
     return response.data;
   },
 
   async create(name: string): Promise<JsonApiResource<Tag>> {
     const response = await apiClient.post<{ data: JsonApiResource<Tag> }>('/api/v1/tags', { tag: { name } });
     return response.data;
+  },
+
+  async delete(name: string): Promise<void> {
+    await apiClient.delete(`/api/v1/tags/${encodeURIComponent(name)}`);
   }
 };

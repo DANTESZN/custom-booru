@@ -1,35 +1,26 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { writable } from 'svelte/store';
   import { tagStore } from '$lib/stores/tags';
   import type { JsonApiResource, Tag } from '$lib/types';
   
-  let tags = [];
-  let isLoading = true;
-  let error = '';
-  let searchQuery = '';
-  let showPopular = false;
-  let newTagName = '';
-  let isCreating = false;
-  let createError = '';
-  
-  // Use stores for reactivity
-  const tagsStore = writable([]);
-  const loadingStore = writable(true);
-  const errorStore = writable('');
-  const createErrorStore = writable('');
+  let tags = $state<JsonApiResource<Tag>[]>([]);
+  let isLoading = $state(false);
+  let error = $state('');
+  let searchQuery = $state('');
+  let showPopular = $state(false);
+  let newTagName = $state('');
+  let isCreating = $state(false);
+  let createError = $state('');
+  let searchTimeout: NodeJS.Timeout;
+  let deletingTags = $state(new Set<string>());
 
   async function loadTags() {
-    isLoading = true;
+    error = '';
+    
     const result = await tagStore.loadTags(1, 50, searchQuery || undefined, showPopular);
     if (!result.success) {
       error = result.error || 'Failed to load tags';
     }
-    isLoading = false;
-  }
-
-  async function handleSearch() {
-    await loadTags();
   }
 
   async function createTag() {
@@ -53,24 +44,49 @@
     isCreating = false;
   }
 
+  function handleSearchInput() {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    searchTimeout = setTimeout(() => {
+      loadTags();
+    }, 300);
+  }
+
+  function handlePopularToggle() {
+    loadTags();
+  }
+
+  async function deleteTag(tagName: string) {
+    if (!confirm(`Are you sure you want to delete the tag "${tagName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    deletingTags.add(tagName);
+
+    const result = await tagStore.deleteTag(tagName);
+    
+    if (!result.success) {
+      alert(result.error || 'Failed to delete tag');
+    }
+
+    deletingTags.delete(tagName);
+  }
+
   onMount(async () => {
     const unsubscribe = tagStore.subscribe((value) => {
       tags = value;
+      console.log('Tags updated:', value);
     });
 
-    await loadTags();
+    console.log('Loading tags...');
+    const result = await tagStore.loadTags(1, 50);
+    console.log('Load result:', result);
+    if (!result.success) {
+      error = result.error || 'Failed to load tags';
+    }
 
     return unsubscribe;
-  });
-
-  $effect(() => {
-    if (searchQuery !== undefined || showPopular !== undefined) {
-      const timeoutId = setTimeout(() => {
-        loadTags();
-      }, 300);
-      
-      return () => clearTimeout(timeoutId);
-    }
   });
 </script>
 
@@ -97,6 +113,7 @@
             type="text"
             id="search"
             bind:value={searchQuery}
+            on:input={handleSearchInput}
             placeholder="Search tags..."
             class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
           />
@@ -106,6 +123,7 @@
             type="checkbox"
             id="popular"
             bind:checked={showPopular}
+            on:change={handlePopularToggle}
             class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
           />
           <label for="popular" class="ml-2 block text-sm text-gray-900">
@@ -147,17 +165,19 @@
       {/if}
     </div>
 
-    {#if isLoading}
-      <div class="flex justify-center items-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-      </div>
-    {:else if error}
+    {#if error}
       <div class="rounded-md bg-red-50 p-4">
         <div class="text-sm text-red-700">
           {error}
         </div>
       </div>
     {:else if tags.length === 0}
+      <!-- Debug info -->
+      <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
+        <div class="text-sm text-yellow-800">
+          Debug: tags.length = {tags.length}, error = "{error}"
+        </div>
+      </div>
       <div class="text-center py-12">
         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
@@ -181,19 +201,37 @@
         
         <div class="flex flex-wrap gap-2">
           {#each tags as tag (tag.id)}
-            <div class="group relative">
-              <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors">
+            <div class="group relative flex items-center">
+              <a
+                href="/search?tags={encodeURIComponent(tag.attributes.name)}"
+                class="inline-flex items-center px-3 py-1 rounded-l-full text-sm font-medium bg-gray-100 text-gray-800 hover:bg-indigo-100 hover:text-indigo-800 transition-colors cursor-pointer"
+              >
                 {tag.attributes.name}
-                {#if tag.attributes.images_count !== undefined}
+                {#if tag.attributes.usage_count !== undefined}
                   <span class="ml-1 text-xs text-gray-600">
-                    ({tag.attributes.images_count})
+                    ({tag.attributes.usage_count})
                   </span>
                 {/if}
-              </span>
+              </a>
+              
+              <button
+                on:click={() => deleteTag(tag.attributes.name)}
+                disabled={deletingTags.has(tag.attributes.name)}
+                class="inline-flex items-center px-2 py-1 rounded-r-full text-sm font-medium bg-red-100 text-red-800 hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Delete tag"
+              >
+                {#if deletingTags.has(tag.attributes.name)}
+                  <svg class="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                {:else}
+                  ×
+                {/if}
+              </button>
               
               <!-- Tooltip on hover -->
               <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                {tag.attributes.images_count || 0} image{tag.attributes.images_count !== 1 ? 's' : ''}
+                Click to search {tag.attributes.usage_count || 0} image{tag.attributes.usage_count !== 1 ? 's' : ''}
               </div>
             </div>
           {/each}
@@ -214,14 +252,14 @@
             
             <div class="bg-white rounded-lg p-4">
               <div class="text-2xl font-bold text-gray-900">
-                {Math.max(...tags.map(t => t.attributes.images_count || 0))}
+                {Math.max(...tags.map(t => t.attributes.usage_count || 0))}
               </div>
               <div class="text-sm text-gray-600">Most Used Tag</div>
             </div>
             
             <div class="bg-white rounded-lg p-4">
               <div class="text-2xl font-bold text-gray-900">
-                {Math.round(tags.reduce((sum, t) => sum + (t.attributes.images_count || 0), 0) / tags.length)}
+                {Math.round(tags.reduce((sum, t) => sum + (t.attributes.usage_count || 0), 0) / tags.length)}
               </div>
               <div class="text-sm text-gray-600">Average Usage</div>
             </div>

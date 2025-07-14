@@ -38,6 +38,17 @@ function createTagStore() {
         console.error('Failed to search tags:', error);
         return { success: false, error: error.message };
       }
+    },
+
+    async deleteTag(name: string) {
+      try {
+        await tagApi.delete(name);
+        update(tags => tags.filter(tag => tag.attributes.name !== name));
+        return { success: true };
+      } catch (error: any) {
+        console.error('Failed to delete tag:', error);
+        return { success: false, error: error.message };
+      }
     }
   };
 }

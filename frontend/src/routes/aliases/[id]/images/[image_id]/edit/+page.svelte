@@ -1,0 +1,377 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
+  import { imageApi } from '$lib/api/images';
+  import { aliasApi } from '$lib/api/aliases';
+  import { tagStore } from '$lib/stores/tags';
+  import { authStore } from '$lib/stores/auth';
+  import type { JsonApiResource, Image, Alias, Tag } from '$lib/types';
+
+  let aliasId = '';
+  let imageId = '';
+  let alias: JsonApiResource<Alias> | null = null;
+  let image: JsonApiResource<Image> | null = null;
+  let isLoading = $state(true);
+  let error = $state('');
+  let saving = $state(false);
+
+  // Form fields
+  let title = $state('');
+  let description = $state('');
+  let tagsInput = $state('');
+  let currentTags = $state<string[]>([]);
+
+  // Tag suggestions
+  let tagSuggestions = $state<JsonApiResource<Tag>[]>([]);
+  let showSuggestions = $state(false);
+
+  onMount(async () => {
+    aliasId = $page.params.id;
+    imageId = $page.params.image_id;
+
+    // Wait for auth store to initialize
+    const authState = $authStore;
+    if (authState.isLoading) {
+      // Wait for auth to finish loading
+      await new Promise((resolve) => {
+        const unsubscribe = authStore.subscribe((state) => {
+          if (!state.isLoading) {
+            unsubscribe();
+            resolve(true);
+          }
+        });
+      });
+    }
+
+    try {
+      // Load alias and image data
+      alias = await aliasApi.getById(aliasId);
+      image = await imageApi.getById(aliasId, imageId);
+
+      // Populate form fields
+      title = image.attributes.title || '';
+      description = image.attributes.description || '';
+      currentTags = image.attributes.tags_list || [];
+
+      isLoading = false;
+    } catch (err: any) {
+      console.error('Error loading image:', err);
+      if (err.status === 404) {
+        error = 'Image not found';
+      } else if (err.status === 403) {
+        error = 'You do not have permission to edit this image';
+      } else if (err.status === 401) {
+        error = 'You must be logged in to edit this image';
+      } else {
+        error = err.message || 'Failed to load image';
+      }
+      isLoading = false;
+    }
+  });
+
+  async function handleTagInput(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const query = target.value.trim();
+    
+    if (query.length > 1) {
+      const result = await tagStore.searchTags(query);
+      if (result.success) {
+        tagSuggestions = result.data;
+        showSuggestions = true;
+      }
+    } else {
+      showSuggestions = false;
+    }
+  }
+
+  function addTag(tagName: string) {
+    if (!currentTags.includes(tagName)) {
+      currentTags = [...currentTags, tagName];
+    }
+    tagsInput = '';
+    showSuggestions = false;
+  }
+
+  function removeTag(tagName: string) {
+    currentTags = currentTags.filter(tag => tag !== tagName);
+  }
+
+  function handleTagKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault();
+      const tagName = tagsInput.trim();
+      if (tagName) {
+        addTag(tagName);
+      }
+    }
+  }
+
+  async function handleSubmit() {
+    if (!image) return;
+    
+    saving = true;
+    try {
+      // Update image data
+      const updatedImage = await imageApi.update(aliasId, imageId, {
+        image: {
+          title,
+          description
+        }
+      });
+
+      // Handle tag changes
+      const originalTags = image.attributes.tags_list || [];
+      const tagsToAdd = currentTags.filter(tag => !originalTags.includes(tag));
+      const tagsToRemove = originalTags.filter(tag => !currentTags.includes(tag));
+
+      if (tagsToAdd.length > 0) {
+        await imageApi.addTags(aliasId, imageId, tagsToAdd);
+      }
+      
+      if (tagsToRemove.length > 0) {
+        await imageApi.removeTags(aliasId, imageId, tagsToRemove);
+      }
+
+      // Redirect back to image view
+      goto(`/aliases/${aliasId}/images/${imageId}`);
+    } catch (err: any) {
+      console.error('Error updating image:', err);
+      error = err.message || 'Failed to update image';
+    }
+    saving = false;
+  }
+
+  async function handleDelete() {
+    if (!image || !confirm('Are you sure you want to delete this image? This action cannot be undone.')) {
+      return;
+    }
+
+    saving = true;
+    try {
+      await imageApi.delete(aliasId, imageId);
+      goto(`/aliases/${aliasId}/images`);
+    } catch (err: any) {
+      console.error('Error deleting image:', err);
+      error = err.message || 'Failed to delete image';
+      saving = false;
+    }
+  }
+</script>
+
+<svelte:head>
+  <title>Edit {image?.attributes.title || 'Image'} - CustomBooru</title>
+</svelte:head>
+
+<div class="max-w-4xl mx-auto py-6 sm:px-6 lg:px-8">
+  <div class="px-4 py-6 sm:px-0">
+    {#if isLoading}
+      <div class="flex justify-center items-center py-12">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    {:else if error}
+      <div class="rounded-md bg-red-50 p-4">
+        <div class="text-sm text-red-700">
+          {error}
+        </div>
+        <div class="mt-4">
+          <a href="/aliases/{aliasId}/images/{imageId}" class="text-indigo-600 hover:text-indigo-500">
+            ← Back to image
+          </a>
+        </div>
+      </div>
+    {:else if image}
+      <!-- Breadcrumb -->
+      <nav class="flex mb-8" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+          <li class="inline-flex items-center">
+            <a href="/aliases" class="text-gray-500 hover:text-gray-700">Artists</a>
+          </li>
+          <li>
+            <div class="flex items-center">
+              <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+              </svg>
+              <a href="/aliases/{aliasId}" class="text-gray-500 hover:text-gray-700 ml-1 md:ml-2">
+                {alias?.attributes.name}
+              </a>
+            </div>
+          </li>
+          <li>
+            <div class="flex items-center">
+              <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+              </svg>
+              <a href="/aliases/{aliasId}/images/{imageId}" class="text-gray-500 hover:text-gray-700 ml-1 md:ml-2">
+                {image.attributes.title || 'Untitled'}
+              </a>
+            </div>
+          </li>
+          <li>
+            <div class="flex items-center">
+              <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+              </svg>
+              <span class="text-gray-900 ml-1 md:ml-2 font-medium">Edit</span>
+            </div>
+          </li>
+        </ol>
+      </nav>
+
+      <!-- Edit Form -->
+      <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+          <h1 class="text-xl font-semibold text-gray-900">Edit Image</h1>
+        </div>
+
+        <form on:submit|preventDefault={handleSubmit} class="px-6 py-6 space-y-6">
+          <!-- Image Preview -->
+          <div class="flex items-center space-x-6">
+            <div class="flex-shrink-0">
+              {#if image.attributes.file_url}
+                <img
+                  src={image.attributes.file_url}
+                  alt={image.attributes.title}
+                  class="h-24 w-24 object-cover rounded-lg"
+                />
+              {:else}
+                <div class="h-24 w-24 bg-gray-200 rounded-lg flex items-center justify-center">
+                  <svg class="h-8 w-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+              {/if}
+            </div>
+            <div>
+              <h3 class="text-lg font-medium text-gray-900">Current Image</h3>
+              <p class="text-sm text-gray-500">
+                {image.attributes.file_filename || 'Unknown filename'}
+              </p>
+            </div>
+          </div>
+
+          <!-- Title -->
+          <div>
+            <label for="title" class="block text-sm font-medium text-gray-700 mb-1">
+              Title
+            </label>
+            <input
+              type="text"
+              id="title"
+              bind:value={title}
+              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Enter image title"
+            />
+          </div>
+
+          <!-- Description -->
+          <div>
+            <label for="description" class="block text-sm font-medium text-gray-700 mb-1">
+              Description
+            </label>
+            <textarea
+              id="description"
+              bind:value={description}
+              rows="4"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Enter image description"
+            ></textarea>
+          </div>
+
+          <!-- Tags -->
+          <div>
+            <label for="tags" class="block text-sm font-medium text-gray-700 mb-1">
+              Tags
+            </label>
+            
+            <!-- Current Tags -->
+            {#if currentTags.length > 0}
+              <div class="flex flex-wrap gap-2 mb-3">
+                {#each currentTags as tag}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                    {tag}
+                    <button
+                      type="button"
+                      on:click={() => removeTag(tag)}
+                      class="ml-1 h-4 w-4 flex items-center justify-center rounded-full hover:bg-indigo-200 focus:outline-none"
+                    >
+                      <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
+                  </span>
+                {/each}
+              </div>
+            {/if}
+
+            <!-- Tag Input -->
+            <div class="relative">
+              <input
+                type="text"
+                id="tags"
+                bind:value={tagsInput}
+                on:input={handleTagInput}
+                on:keydown={handleTagKeydown}
+                on:blur={() => setTimeout(() => showSuggestions = false, 200)}
+                on:focus={() => {
+                  if (tagSuggestions.length > 0) showSuggestions = true;
+                }}
+                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Add tags (press Enter or comma to add)"
+              />
+
+              <!-- Tag Suggestions -->
+              {#if showSuggestions && tagSuggestions.length > 0}
+                <div class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                  {#each tagSuggestions as tag}
+                    <button
+                      type="button"
+                      on:click={() => addTag(tag.attributes.name)}
+                      class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none flex justify-between items-center"
+                    >
+                      <span>{tag.attributes.name}</span>
+                      <span class="text-xs text-gray-500">
+                        {tag.attributes.usage_count || 0}
+                      </span>
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+            <p class="mt-1 text-sm text-gray-500">
+              Type to search existing tags or create new ones. Press Enter or comma to add.
+            </p>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex justify-between pt-6">
+            <button
+              type="button"
+              on:click={handleDelete}
+              disabled={saving}
+              class="px-4 py-2 text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Deleting...' : 'Delete Image'}
+            </button>
+
+            <div class="flex space-x-3">
+              <a
+                href="/aliases/{aliasId}/images/{imageId}"
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                Cancel
+              </a>
+              <button
+                type="submit"
+                disabled={saving}
+                class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    {/if}
+  </div>
+</div>

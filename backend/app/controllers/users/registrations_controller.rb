@@ -11,7 +11,8 @@ class Users::RegistrationsController < Devise::RegistrationsController
         message: 'Successfully registered',
         user: {
           id: resource.id,
-          email: resource.email
+          email: resource.email,
+          aliases: resource.aliases.select(:id, :name)
         }
       }, status: :created
     else
@@ -55,7 +56,8 @@ class Users::RegistrationsController < Devise::RegistrationsController
         message: 'Successfully registered',
         user: {
           id: resource.id,
-          email: resource.email
+          email: resource.email,
+          aliases: resource.aliases.select(:id, :name)
         }
       }, status: :created
     else

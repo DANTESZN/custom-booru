@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { writable } from 'svelte/store';
+  import { page } from '$app/stores';
   import { searchApi } from '$lib/api/search';
   import { tagStore } from '$lib/stores/tags';
   import { aliasStore } from '$lib/stores/aliases';
@@ -139,6 +140,31 @@
 
   onMount(() => {
     loadSuggestions();
+    
+    // Check for URL parameters to pre-populate search
+    const urlParams = new URLSearchParams($page.url.search);
+    const tagsParam = urlParams.get('tags');
+    const aliasParam = urlParams.get('alias');
+    const titleParam = urlParams.get('title');
+    const descriptionParam = urlParams.get('description');
+    
+    if (tagsParam) {
+      searchForm.tags = tagsParam.split(',').map(tag => decodeURIComponent(tag.trim()));
+    }
+    if (aliasParam) {
+      searchForm.alias = decodeURIComponent(aliasParam);
+    }
+    if (titleParam) {
+      searchForm.title = decodeURIComponent(titleParam);
+    }
+    if (descriptionParam) {
+      searchForm.description = decodeURIComponent(descriptionParam);
+    }
+    
+    // Auto-search if any parameters were provided
+    if (tagsParam || aliasParam || titleParam || descriptionParam) {
+      performSearch(1);
+    }
   });
 </script>
 
@@ -204,7 +230,7 @@
                       class="w-full text-left px-4 py-2 hover:bg-gray-100 flex justify-between items-center"
                     >
                       <span>{tag.attributes.name}</span>
-                      <span class="text-xs text-gray-500">({tag.attributes.images_count || 0})</span>
+                      <span class="text-xs text-gray-500">({tag.attributes.usage_count || 0})</span>
                     </button>
                   {/each}
                 </div>

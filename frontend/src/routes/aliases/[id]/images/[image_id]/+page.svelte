@@ -1,31 +1,54 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
   import { writable } from 'svelte/store';
   import { aliasApi } from '$lib/api/aliases';
   import { apiClient } from '$lib/api/client';
+  import { imageApi } from '$lib/api/images';
+  import { authStore } from '$lib/stores/auth';
   import type { JsonApiResource, Image, Alias } from '$lib/types';
   
-  let aliasId = '';
-  let imageId = '';
-  let alias = null;
-  let image = null;
+  let aliasId = $state('');
+  let imageId = $state('');
+  let alias = $state(null);
+  let image = $state(null);
+  let relationships = $state([]);
+  let relationshipTypes = $state({});
   const loadingStore = writable(true);
   const errorStore = writable('');
+  
+  let authState = $derived($authStore);
+  let canEdit = $derived(authState.isAuthenticated && authState.user && alias && 
+              authState.user.aliases?.some(userAlias => userAlias.id.toString() === alias.id.toString()));
 
-  onMount(async () => {
-    aliasId = $page.params.id;
-    imageId = $page.params.image_id;
-    
+  async function loadImageData(currentAliasId, currentImageId) {
+    loadingStore.set(true);
+    errorStore.set('');
     try {
+      aliasId = currentAliasId;
+      imageId = currentImageId;
+
+      // Reset data
+      image = null;
+      relationships = [];
+
       // Load alias info
       alias = await aliasApi.getById(aliasId);
       
       // Load specific image
       const imageResponse = await apiClient.get(`/api/v1/aliases/${aliasId}/images/${imageId}`);
       image = imageResponse.data;
-      
-      loadingStore.set(false);
+
+      // Load relationships if image exists
+      if (image) {
+        try {
+          relationships = await imageApi.getRelationships(aliasId, imageId);
+          relationshipTypes = await imageApi.getRelationshipTypes();
+        } catch (relError) {
+          console.warn('Failed to load relationships:', relError);
+        }
+      }
     } catch (err) {
       console.error('Error loading image:', err);
       if (err.status === 404) {
@@ -33,7 +56,14 @@
       } else {
         errorStore.set(err.message || 'Failed to load image');
       }
+    } finally {
       loadingStore.set(false);
+    }
+  }
+
+  $effect(() => {
+    if ($page.params.image_id && $page.params.id) {
+      loadImageData($page.params.id, $page.params.image_id);
     }
   });
 </script>
@@ -144,9 +174,12 @@
                   <h3 class="text-sm font-medium text-gray-900 mb-2">Tags</h3>
                   <div class="flex flex-wrap gap-2">
                     {#each image.attributes.tags_list as tag}
-                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                      <a
+                        href="/search?tags={encodeURIComponent(tag)}"
+                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 hover:bg-indigo-200 hover:text-indigo-900 transition-colors cursor-pointer"
+                      >
                         {tag}
-                      </span>
+                      </a>
                     {/each}
                   </div>
                 </div>
@@ -182,28 +215,110 @@
               </div>
 
               <!-- Actions -->
-              <div class="flex space-x-3">
-                <a
-                  href="/aliases/{aliasId}/images"
-                  class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg text-center transition-colors"
-                >
-                  Back to Gallery
-                </a>
-                {#if image.attributes.file_url}
-                  <a
-                    href={image.attributes.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg text-center transition-colors"
-                  >
-                    Open Full Size
-                  </a>
+              <div class="space-y-3">
+                {#if canEdit}
+                  <div class="flex space-x-3">
+                    <a
+                      href="/aliases/{aliasId}/images/{imageId}/edit"
+                      class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-medium py-2 px-4 rounded-lg text-center transition-colors"
+                    >
+                      Edit Image
+                    </a>
+                  </div>
                 {/if}
+                
+                <div class="flex space-x-3">
+                  <a
+                    href="/aliases/{aliasId}/images"
+                    class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg text-center transition-colors"
+                  >
+                    Back to Gallery
+                  </a>
+                  {#if image.attributes.file_url}
+                    <a
+                      href={image.attributes.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg text-center transition-colors"
+                    >
+                      Open Full Size
+                    </a>
+                  {/if}
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- Related Images Section -->
+      {#if relationships && relationships.length > 0}
+        <div class="mt-8 bg-white rounded-lg shadow-lg overflow-hidden">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-900">Related Images</h2>
+          </div>
+          
+          <div class="p-6 space-y-8">
+            {#each relationships as relationshipGroup}
+              <div>
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="text-lg font-medium text-gray-900 capitalize">
+                    {relationshipGroup.type}
+                  </h3>
+                  <span class="text-sm text-gray-500">
+                    {relationshipTypes[relationshipGroup.type] || ''}
+                  </span>
+                </div>
+                
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {#each relationshipGroup.relationships as relationship}
+                    <div class="group relative">
+                      <button 
+                        on:click={() => goto(`/aliases/${relationship.related_image_alias_id}/images/${relationship.related_image_id}`)}
+                        class="block aspect-square rounded-lg overflow-hidden bg-gray-100 hover:shadow-lg transition-shadow cursor-pointer w-full"
+                      >
+                        {#if relationship.related_image_file_url}
+                          <img
+                            src={relationship.related_image_file_url}
+                            alt={relationship.related_image_title}
+                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          />
+                        {:else}
+                          <div class="w-full h-full flex items-center justify-center">
+                            <svg class="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                              <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                            </svg>
+                          </div>
+                        {/if}
+                      </button>
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- Manage Relationships (for authorized users) -->
+      {#if canEdit}
+        <div class="mt-6 bg-white rounded-lg shadow-lg overflow-hidden">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">Manage Relationships</h2>
+          </div>
+          <div class="p-6">
+            <a
+              href="/aliases/{aliasId}/images/{imageId}/relationships"
+              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              Manage Relationships
+            </a>
+          </div>
+        </div>
+      {/if}
     {/if}
   </div>
 </div>

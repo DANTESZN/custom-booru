@@ -1,7 +1,7 @@
 # Security configurations for the CustomBooru API
 
 # Set security headers
-Rails.application.config.force_ssl = true if Rails.env.production?
+# Rails.application.config.force_ssl = true if Rails.env.production?
 
 # Rate limiting would typically be handled by a reverse proxy like nginx
 # or by a service like Cloudflare, but you can also add gems like rack-attack

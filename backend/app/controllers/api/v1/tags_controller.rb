@@ -1,5 +1,6 @@
 class Api::V1::TagsController < Api::V1::BaseController
-  before_action :set_tag, only: [:show]
+  skip_before_action :authenticate_user!, only: [:index, :show]
+  before_action :set_tag, only: [:show, :destroy]
 
   def index
     tags = Tag.all.order(:name)
@@ -26,6 +27,15 @@ class Api::V1::TagsController < Api::V1::BaseController
       render_success(TagSerializer.new(@tag).serializable_hash[:data], status: :created)
     else
       render_error('Failed to create tag', details: @tag.errors)
+    end
+  end
+
+  def destroy
+    if @tag.images.any?
+      render_error('Cannot delete tag that is still used by images')
+    else
+      @tag.destroy
+      render_success(message: 'Tag deleted successfully')
     end
   end
 

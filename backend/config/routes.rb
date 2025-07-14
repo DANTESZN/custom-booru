@@ -12,6 +12,9 @@ Rails.application.routes.draw do
           member do
             post :add_tags
             delete :remove_tags
+            get :relationships
+            post :add_relationship
+            delete 'relationships/:relationship_id', to: 'images#remove_relationship', as: :remove_relationship
           end
         end
       end
@@ -19,6 +22,7 @@ Rails.application.routes.draw do
       resources :tags, only: [:index, :show, :create]
       
       get 'search/images', to: 'search#images'
+      get 'images/relationship_types', to: 'images#relationship_types'
     end
   end
 

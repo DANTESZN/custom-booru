@@ -53,5 +53,28 @@ export const imageApi = {
   async removeTags(aliasId: string, imageId: string, tags: string[]): Promise<JsonApiResource<Image>> {
     const response = await apiClient.delete<{ data: JsonApiResource<Image> }>(`/api/v1/aliases/${aliasId}/images/${imageId}/remove_tags`, { tags });
     return response.data;
+  },
+
+  async getRelationships(aliasId: string, imageId: string): Promise<any[]> {
+    const response = await apiClient.get<{ data: any[] }>(`/api/v1/aliases/${aliasId}/images/${imageId}/relationships`);
+    return response.data;
+  },
+
+  async addRelationship(aliasId: string, imageId: string, relatedImageId: string, relationshipType: string, description?: string): Promise<any> {
+    const response = await apiClient.post<{ data: any }>(`/api/v1/aliases/${aliasId}/images/${imageId}/add_relationship`, {
+      related_image_id: relatedImageId,
+      relationship_type: relationshipType,
+      description: description
+    });
+    return response.data;
+  },
+
+  async removeRelationship(aliasId: string, imageId: string, relationshipId: string): Promise<{ message: string }> {
+    return apiClient.delete<{ message: string }>(`/api/v1/aliases/${aliasId}/images/${imageId}/relationships/${relationshipId}`);
+  },
+
+  async getRelationshipTypes(): Promise<Record<string, string>> {
+    const response = await apiClient.get<{ data: Record<string, string> }>('/api/v1/images/relationship_types');
+    return response.data;
   }
 };
