@@ -270,21 +270,34 @@
                   </span>
                 </div>
                 
-                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div class="columns-2 md:columns-3 lg:columns-4 gap-4">
                   {#each relationshipGroup.relationships as relationship}
-                    <div class="group relative">
+                    <div class="group relative break-inside-avoid mb-4 inline-block w-full">
                       <button
                         on:click={() => goto(`/aliases/${relationship.related_image.attributes.alias_id}/images/${relationship.related_image.id}`)}
-                        class="block aspect-square rounded-lg overflow-hidden bg-gray-100 hover:shadow-lg transition-shadow cursor-pointer w-full"
+                        class="block w-full rounded-lg overflow-hidden bg-white shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-200 relative"
                       >
                         {#if relationship.related_image.attributes.file_url}
                           <img
                             src={relationship.related_image.attributes.file_url}
                             alt={relationship.related_image.attributes.title}
-                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            class="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-200 block"
+                            loading="lazy"
                           />
+                          
+                          <!-- Image title overlay on hover - only for images with file_url -->
+                          <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end pointer-events-none">
+                            <div class="p-3 text-white w-full">
+                              <p class="text-sm font-medium truncate">
+                                {relationship.related_image.attributes.title || 'Untitled'}
+                              </p>
+                              <p class="text-xs opacity-75 capitalize">
+                                {relationship.direction === 'outgoing' ? 'This → Related' : 'Related → This'}
+                              </p>
+                            </div>
+                          </div>
                         {:else}
-                          <div class="w-full h-full flex items-center justify-center">
+                          <div class="w-full aspect-square flex items-center justify-center bg-gray-100">
                             <svg class="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                               <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
                             </svg>
