@@ -3,12 +3,14 @@
 	import { authStore } from '$lib/stores/auth';
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
+	import GlobalUploadModal from '$lib/components/GlobalUploadModal.svelte';
 	
 	let { children } = $props();
 	
 	// Use stores for reactivity (Svelte 5 + runes compatibility)
 	const dropdownStore = writable(false);
 	const logoutNotificationStore = writable(false);
+	let showGlobalUpload = $state(false);
 
 	onMount(() => {
 		// Initialize auth store
@@ -56,9 +58,17 @@
 			closeDropdown();
 		}
 	}
+
+	function openGlobalUpload() {
+		showGlobalUpload = true;
+	}
+
+	function closeGlobalUpload() {
+		showGlobalUpload = false;
+	}
 </script>
 
-<svelte:window on:click={handleClickOutside} />
+<svelte:window onclick={handleClickOutside} />
 
 <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
 	<!-- Token Expiration Notification -->
@@ -68,8 +78,8 @@
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
 			</svg>
 			<span class="font-medium">Session expired. Please log in again.</span>
-			<button 
-				on:click={() => logoutNotificationStore.set(false)}
+			<button
+				onclick={() => logoutNotificationStore.set(false)}
 				class="ml-2 text-orange-200 hover:text-white"
 			>
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -130,11 +140,23 @@
 
 				<!-- Auth Section -->
 				<div class="flex items-center space-x-3">
+					<!-- Upload Button (only show when authenticated) -->
+					{#if $authStore.isAuthenticated}
+						<button
+							onclick={openGlobalUpload}
+							class="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg"
+						>
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+							</svg>
+							<span class="hidden sm:inline">Upload</span>
+						</button>
+					{/if}
 					{#if $authStore.isAuthenticated && $authStore.user}
 						<!-- User Profile Dropdown -->
 						<div class="relative dropdown-container">
 							<button
-								on:click={toggleDropdown}
+								onclick={toggleDropdown}
 								class="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
 							>
 								<!-- Avatar -->
@@ -178,7 +200,7 @@
 											Dashboard
 										</a>
 										<div class="border-t border-gray-200 my-1"></div>
-										<button on:click={handleLogout} class="flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50 transition-colors text-left">
+										<button onclick={handleLogout} class="flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50 transition-colors text-left">
 											<svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
 											</svg>
@@ -226,3 +248,9 @@
 		</div>
 	</footer>
 </div>
+
+<!-- Global Upload Modal -->
+<GlobalUploadModal
+	isOpen={showGlobalUpload}
+	onClose={closeGlobalUpload}
+/>
