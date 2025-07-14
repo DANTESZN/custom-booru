@@ -72,7 +72,7 @@ class Api::V1::ImagesController < Api::V1::BaseController
     # Group relationships by type
     grouped_relationships = relationships_data.group_by(&:relationship_type)
     
-    # Format response
+    # Format response to match frontend expectations
     response_data = grouped_relationships.map do |type, relationships|
       {
         type: type,
@@ -81,11 +81,15 @@ class Api::V1::ImagesController < Api::V1::BaseController
           other_image = rel.source_image_id == @image.id ? rel.related_image : rel.source_image
           {
             id: rel.id,
-            related_image_id: other_image.id,
-            related_image_alias_id: other_image.alias_id,
-            related_image_title: other_image.title,
-            related_image_file_url: other_image.file.attached? ? 
-              Rails.application.routes.url_helpers.rails_blob_url(other_image.file, host: request.host_with_port, protocol: request.protocol.chomp('://')) : nil,
+            related_image: {
+              id: other_image.id,
+              attributes: {
+                title: other_image.title,
+                file_url: other_image.file.attached? ?
+                  Rails.application.routes.url_helpers.rails_blob_url(other_image.file, host: request.host_with_port, protocol: request.protocol.chomp('://')) : nil,
+                alias_id: other_image.alias_id
+              }
+            },
             description: rel.description,
             position: rel.position,
             direction: rel.source_image_id == @image.id ? 'outgoing' : 'incoming'
