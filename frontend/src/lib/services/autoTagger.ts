@@ -37,19 +37,47 @@ export class AutoTaggerService {
    * Resize image to optimize for API processing
    */
   private static async resizeImage(file: Blob, maxWidth: number = 2048, maxHeight: number = 2048): Promise<Blob> {
-    return new Promise((resolve) => {
+    console.log('🔍 DEBUG: Starting image resize process:', {
+      originalSize: file.size,
+      originalType: file.type,
+      maxWidth,
+      maxHeight
+    });
+    
+    return new Promise((resolve, reject) => {
       const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d')!;
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        console.error('❌ DEBUG: Failed to get canvas 2D context');
+        reject(new Error('Failed to get canvas 2D context'));
+        return;
+      }
+      
       const img = new Image();
       
       img.onload = () => {
+        console.log('🔍 DEBUG: Image loaded for resizing:', {
+          originalWidth: img.width,
+          originalHeight: img.height
+        });
+        
         // Calculate new dimensions
         let { width, height } = img;
+        const originalWidth = width;
+        const originalHeight = height;
         
         if (width > maxWidth || height > maxHeight) {
           const ratio = Math.min(maxWidth / width, maxHeight / height);
           width *= ratio;
           height *= ratio;
+          console.log('🔍 DEBUG: Resizing image:', {
+            ratio,
+            newWidth: width,
+            newHeight: height
+          });
+        } else {
+          console.log('🔍 DEBUG: Image within size limits, no resizing needed');
         }
         
         canvas.width = width;
@@ -58,11 +86,32 @@ export class AutoTaggerService {
         // Draw and convert to blob
         ctx.drawImage(img, 0, 0, width, height);
         canvas.toBlob((blob) => {
-          resolve(blob || file);
+          if (blob) {
+            console.log('✅ DEBUG: Image resize completed:', {
+              originalSize: file.size,
+              newSize: blob.size,
+              compressionRatio: (blob.size / file.size).toFixed(2),
+              finalType: blob.type
+            });
+            resolve(blob);
+          } else {
+            console.warn('⚠️ DEBUG: Canvas toBlob returned null, using original file');
+            resolve(file);
+          }
         }, 'image/jpeg', 0.9);
       };
       
-      img.src = URL.createObjectURL(file);
+      img.onerror = (error) => {
+        console.error('❌ DEBUG: Image load error during resize:', error);
+        reject(new Error('Failed to load image for resizing'));
+      };
+      
+      try {
+        img.src = URL.createObjectURL(file);
+      } catch (error) {
+        console.error('❌ DEBUG: Failed to create object URL:', error);
+        reject(new Error('Failed to create object URL for image'));
+      }
     });
   }
 
@@ -70,22 +119,46 @@ export class AutoTaggerService {
    * Get cached result if available and not expired
    */
   private static getCachedResult(imageUrl: string): AutoTagResult | null {
+    console.log('🔍 DEBUG: Checking cache for image URL:', imageUrl);
+    
     try {
       const cacheKey = this.CACHE_KEY_PREFIX + btoa(imageUrl);
+      console.log('🔍 DEBUG: Generated cache key:', cacheKey);
+      
       const cached = localStorage.getItem(cacheKey);
+      console.log('🔍 DEBUG: Cache lookup result:', cached ? 'FOUND' : 'NOT_FOUND');
       
       if (cached) {
         const { result, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < this.CACHE_DURATION) {
+        const age = Date.now() - timestamp;
+        const isExpired = age >= this.CACHE_DURATION;
+        
+        console.log('🔍 DEBUG: Cache entry details:', {
+          timestamp: new Date(timestamp).toISOString(),
+          age: Math.round(age / 1000) + 's',
+          maxAge: Math.round(this.CACHE_DURATION / 1000) + 's',
+          isExpired,
+          hasResult: !!result
+        });
+        
+        if (!isExpired) {
+          console.log('✅ DEBUG: Using cached result');
           return result;
         } else {
+          console.log('🔍 DEBUG: Cache expired, removing entry');
           localStorage.removeItem(cacheKey);
         }
       }
     } catch (error) {
-      console.warn('Failed to get cached result:', error);
+      console.error('❌ DEBUG: Failed to get cached result:', error);
+      console.error('❌ DEBUG: Cache error details:', {
+        name: (error as any)?.name,
+        message: (error as any)?.message,
+        imageUrl: imageUrl.substring(0, 100) + '...'
+      });
     }
     
+    console.log('🔍 DEBUG: No valid cache entry found');
     return null;
   }
 
@@ -93,15 +166,44 @@ export class AutoTaggerService {
    * Cache the result
    */
   private static setCachedResult(imageUrl: string, result: AutoTagResult): void {
+    console.log('🔍 DEBUG: Caching result for image URL:', imageUrl);
+    
     try {
       const cacheKey = this.CACHE_KEY_PREFIX + btoa(imageUrl);
       const cacheData = {
         result,
         timestamp: Date.now()
       };
-      localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+      
+      const serialized = JSON.stringify(cacheData);
+      console.log('🔍 DEBUG: Cache data details:', {
+        cacheKey,
+        dataSize: serialized.length,
+        generalTags: result.generalTags.length,
+        characterTags: result.characterTags.length,
+        rating: result.rating
+      });
+      
+      localStorage.setItem(cacheKey, serialized);
+      console.log('✅ DEBUG: Result cached successfully');
+      
+      // Check localStorage usage
+      const stats = this.getCacheStats();
+      console.log('🔍 DEBUG: Cache statistics:', stats);
+      
     } catch (error) {
-      console.warn('Failed to cache result:', error);
+      console.error('❌ DEBUG: Failed to cache result:', error);
+      console.error('❌ DEBUG: Cache error details:', {
+        name: (error as any)?.name,
+        message: (error as any)?.message,
+        isQuotaExceeded: (error as any)?.name === 'QuotaExceededError'
+      });
+      
+      // If quota exceeded, try to clear old entries
+      if ((error as any)?.name === 'QuotaExceededError') {
+        console.log('🔍 DEBUG: Attempting to clear old cache entries...');
+        this.clearCache();
+      }
     }
   }
 
@@ -109,13 +211,31 @@ export class AutoTaggerService {
    * Sanitize tag names to match backend validation (only alphanumeric, underscore, hyphen)
    */
   private static sanitizeTagName(tagName: string): string {
-    return tagName
+    console.log('🔍 DEBUG: Sanitizing tag name:', tagName);
+    
+    if (!tagName || typeof tagName !== 'string') {
+      console.warn('⚠️ DEBUG: Invalid tag name input:', tagName);
+      return '';
+    }
+    
+    const original = tagName;
+    const sanitized = tagName
       .toLowerCase()
       .replace(/\s+/g, '_')           // Replace spaces with underscores
       .replace(/[()]/g, '')           // Remove parentheses
       .replace(/[^a-zA-Z0-9_-]/g, '') // Remove any other invalid characters
       .replace(/_+/g, '_')            // Replace multiple underscores with single
       .replace(/^_|_$/g, '');         // Remove leading/trailing underscores
+    
+    console.log('🔍 DEBUG: Tag sanitization result:', {
+      original,
+      sanitized,
+      changed: original !== sanitized,
+      valid: /^[a-zA-Z0-9_-]+$/.test(sanitized),
+      length: sanitized.length
+    });
+    
+    return sanitized;
   }
 
   /**
@@ -256,14 +376,75 @@ export class AutoTaggerService {
       
       try {
         console.log('🔍 DEBUG: Importing @gradio/client...');
-        // Import the Gradio client dynamically
-        const { Client } = await import('@gradio/client') as any;
-        console.log('🔍 DEBUG: @gradio/client imported successfully');
+        console.log('🔍 DEBUG: Current environment:', {
+          userAgent: navigator.userAgent,
+          timestamp: new Date().toISOString(),
+          location: window.location.href
+        });
+        
+        // Import the Gradio client dynamically with detailed error handling
+        let Client;
+        try {
+          const gradioModule = await import('@gradio/client') as any;
+          Client = gradioModule.Client;
+          console.log('🔍 DEBUG: @gradio/client imported successfully');
+          console.log('🔍 DEBUG: Client object:', typeof Client, Client);
+        } catch (importError) {
+          console.error('❌ DEBUG: Failed to import @gradio/client:', importError);
+          console.error('❌ DEBUG: Import error details:', {
+            name: (importError as any)?.name,
+            message: (importError as any)?.message,
+            stack: (importError as any)?.stack
+          });
+          throw new Error(`Failed to import @gradio/client: ${(importError as any)?.message}`);
+        }
         
         console.log('🔍 DEBUG: Connecting to Hugging Face space: SmilingWolf/wd-tagger');
-        // Connect to the Hugging Face space
-        const client = await Client.connect("SmilingWolf/wd-tagger");
-        console.log('🔍 DEBUG: Connected to Hugging Face space successfully');
+        console.log('🔍 DEBUG: Connection attempt started at:', new Date().toISOString());
+        
+        // Connect to the Hugging Face space with timeout and detailed logging
+        let client;
+        const connectionTimeout = 30000; // 30 seconds
+        
+        console.log('🔍 DEBUG: Creating connection promise...');
+        const connectionPromise = Client.connect("SmilingWolf/wd-tagger");
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Connection timeout after 30 seconds')), connectionTimeout)
+        );
+        
+        try {
+          console.log('🔍 DEBUG: Racing connection vs timeout...');
+          client = await Promise.race([connectionPromise, timeoutPromise]);
+          console.log('🔍 DEBUG: Connected to Hugging Face space successfully');
+          console.log('🔍 DEBUG: Client connection details:', {
+            connected: !!client,
+            clientType: typeof client,
+            connectionTime: new Date().toISOString(),
+            clientMethods: client ? Object.getOwnPropertyNames(client) : []
+          });
+        } catch (connectionError) {
+          console.error('❌ DEBUG: Failed to connect to Hugging Face space:', connectionError);
+          console.error('❌ DEBUG: Connection error details:', {
+            name: (connectionError as any)?.name,
+            message: (connectionError as any)?.message,
+            stack: (connectionError as any)?.stack,
+            isTimeout: (connectionError as any)?.message?.includes('timeout')
+          });
+          
+          // Check if it's a network issue
+          try {
+            console.log('🔍 DEBUG: Testing basic network connectivity...');
+            const testResponse = await fetch('https://httpbin.org/get', {
+              method: 'GET',
+              signal: AbortSignal.timeout(5000)
+            });
+            console.log('🔍 DEBUG: Network test result:', testResponse.ok ? 'SUCCESS' : 'FAILED');
+          } catch (networkError) {
+            console.error('❌ DEBUG: Network connectivity test failed:', networkError);
+          }
+          
+          throw new Error(`Failed to connect to Hugging Face space: ${(connectionError as any)?.message}`);
+        }
         
         console.log('🔍 DEBUG: Making prediction with parameters:', {
           image: `[Blob ${resizedBlob.size} bytes]`,
@@ -274,8 +455,10 @@ export class AutoTaggerService {
           character_mcut_enabled: finalConfig.character_mcut_enabled,
         });
         
-        // Make the prediction using the correct API format
-        const result = await client.predict("/predict", {
+        // Make the prediction using the correct API format with timeout
+        let result;
+        const predictionTimeout = 60000; // 60 seconds for API call
+        const predictionPromise = client.predict("/predict", {
           image: resizedBlob,
           model_repo: finalConfig.model_repo,
           general_thresh: finalConfig.general_thresh,
@@ -283,13 +466,62 @@ export class AutoTaggerService {
           character_thresh: finalConfig.character_thresh,
           character_mcut_enabled: finalConfig.character_mcut_enabled,
         });
+        const predictionTimeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('API prediction timeout after 60 seconds')), predictionTimeout)
+        );
+        
+        try {
+          console.log('🔍 DEBUG: Starting API prediction call...');
+          result = await Promise.race([predictionPromise, predictionTimeoutPromise]);
+          console.log('🔍 DEBUG: API prediction completed successfully');
+        } catch (predictionError) {
+          console.error('❌ DEBUG: API prediction failed:', predictionError);
+          console.error('❌ DEBUG: Prediction error details:', {
+            name: (predictionError as any)?.name,
+            message: (predictionError as any)?.message,
+            stack: (predictionError as any)?.stack,
+            isTimeout: (predictionError as any)?.message?.includes('timeout')
+          });
+          throw predictionError;
+        }
 
         console.log('🔍 DEBUG: Raw API response:', result);
         console.log('🔍 DEBUG: API response type:', typeof result);
         console.log('🔍 DEBUG: API response data:', result?.data);
+        console.log('🔍 DEBUG: API response data type:', typeof result?.data);
+        console.log('🔍 DEBUG: API response data length:', Array.isArray(result?.data) ? result.data.length : 'not array');
+
+        // Validate response structure before parsing
+        if (!result || !result.data || !Array.isArray(result.data)) {
+          console.error('❌ DEBUG: Invalid API response structure:', {
+            hasResult: !!result,
+            hasData: !!(result?.data),
+            dataType: typeof result?.data,
+            isArray: Array.isArray(result?.data)
+          });
+          throw new Error('Invalid API response structure');
+        }
 
         // Parse the response from the real API
-        parsedResult = this.parseTagsFromResponse(result);
+        try {
+          console.log('🔍 DEBUG: Starting response parsing...');
+          parsedResult = this.parseTagsFromResponse(result);
+          console.log('✅ DEBUG: Response parsing completed successfully');
+          console.log('✅ DEBUG: Parsed result:', {
+            generalTagsCount: parsedResult.generalTags.length,
+            characterTagsCount: parsedResult.characterTags.length,
+            rating: parsedResult.rating,
+            rawOutputLength: parsedResult.rawOutput.length
+          });
+        } catch (parseError) {
+          console.error('❌ DEBUG: Response parsing failed:', parseError);
+          console.error('❌ DEBUG: Parse error details:', {
+            name: (parseError as any)?.name,
+            message: (parseError as any)?.message,
+            stack: (parseError as any)?.stack
+          });
+          throw new Error(`Failed to parse API response: ${(parseError as any)?.message}`);
+        }
         
         console.log('✅ DEBUG: Successfully got tags from Hugging Face API:', parsedResult);
       } catch (gradioError) {
