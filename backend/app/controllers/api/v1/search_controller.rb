@@ -2,7 +2,6 @@ class Api::V1::SearchController < Api::V1::BaseController
   def images
     images = Image.joins(:alias).where(aliases: { user: current_user })
                   .includes(:tags, :alias)
-                  .order(created_at: :desc)
 
     # Filter by tags
     if params[:tags].present?

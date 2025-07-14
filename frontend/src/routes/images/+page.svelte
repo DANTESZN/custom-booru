@@ -1,54 +1,110 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { searchApi } from '$lib/api/search';
   import type { JsonApiResource, Image } from '$lib/types';
   
   let images = $state<JsonApiResource<Image>[]>([]);
   let isLoading = $state(true);
+  let isLoadingMore = $state(false);
   let error = $state('');
   let currentPage = $state(1);
   let totalPages = $state(1);
   let totalCount = $state(0);
-  let perPage = $state(24);
-  let sortBy = $state('created_at');
-  let sortOrder = $state('desc');
+  let perPage = $state(15);
+  let sortBy = $state('newest');
+  let hasMore = $state(true);
 
-  async function loadImages(page = 1) {
-    isLoading = true;
+  // Convert frontend sort values to backend format
+  function getBackendSortValue(frontendSort: string): string {
+    switch (frontendSort) {
+      case 'newest':
+        return 'created_at'; // Backend defaults to desc for anything other than 'title' or 'oldest'
+      case 'oldest':
+        return 'oldest'; // Backend has specific 'oldest' option
+      case 'title':
+        return 'title'; // Backend sorts title ascending
+      default:
+        return 'created_at'; // Default to newest (desc)
+    }
+  }
+
+  async function loadImages(page = 1, append = false) {
+    if (append) {
+      isLoadingMore = true;
+    } else {
+      isLoading = true;
+      images = [];
+    }
     error = '';
 
     try {
       const response = await searchApi.search({
         page,
         per_page: perPage,
-        sort: sortBy,
-        order: sortOrder
+        sort: getBackendSortValue(sortBy)
       });
       
-      images = response.data;
+      if (append) {
+        images = [...images, ...response.data];
+      } else {
+        images = response.data;
+      }
+      
       currentPage = response.meta.current_page;
       totalPages = response.meta.total_pages;
       totalCount = response.meta.total_count;
+      hasMore = currentPage < totalPages;
     } catch (err: any) {
       error = err.message || 'Failed to load images';
-      images = [];
+      if (!append) {
+        images = [];
+      }
     }
     
     isLoading = false;
+    isLoadingMore = false;
   }
 
-  function handlePageChange(page: number) {
-    if (page >= 1 && page <= totalPages && page !== currentPage) {
-      loadImages(page);
-    }
+  function handlePerPageChange() {
+    currentPage = 1;
+    hasMore = true;
+    loadImages(1);
   }
 
   function handleSortChange() {
+    currentPage = 1;
+    hasMore = true;
     loadImages(1);
+  }
+
+  function loadMore() {
+    if (hasMore && !isLoadingMore && !isLoading) {
+      loadImages(currentPage + 1, true);
+    }
+  }
+
+  // Infinite scroll handler
+  function handleScroll() {
+    if (isLoading || isLoadingMore || !hasMore) return;
+    
+    const scrollPosition = window.innerHeight + window.scrollY;
+    const documentHeight = document.documentElement.scrollHeight;
+    
+    // Load more when user is within 1000px of bottom
+    if (scrollPosition >= documentHeight - 1000) {
+      loadMore();
+    }
   }
 
   onMount(() => {
     loadImages(1);
+    window.addEventListener('scroll', handleScroll);
+  });
+
+  onDestroy(() => {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('scroll', handleScroll);
+    }
   });
 </script>
 
@@ -69,8 +125,24 @@
             </p>
           </div>
           
-          <!-- Sort Controls -->
-          <div class="flex items-center gap-4">
+          <!-- Controls -->
+          <div class="flex items-center gap-6">
+            <!-- Items per page -->
+            <div class="flex items-center gap-2">
+              <label for="perPage" class="text-sm font-medium text-gray-700">Items per load:</label>
+              <select
+                id="perPage"
+                bind:value={perPage}
+                on:change={handlePerPageChange}
+                class="block border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              >
+                <option value={10}>10</option>
+                <option value={15}>15</option>
+                <option value={25}>25</option>
+              </select>
+            </div>
+            
+            <!-- Sort Controls -->
             <div class="flex items-center gap-2">
               <label for="sort" class="text-sm font-medium text-gray-700">Sort by:</label>
               <select
@@ -79,19 +151,11 @@
                 on:change={handleSortChange}
                 class="block border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               >
-                <option value="created_at">Date Created</option>
-                <option value="updated_at">Date Updated</option>
-                <option value="title">Title</option>
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="title">Title (A-Z)</option>
               </select>
             </div>
-            
-            <button
-              on:click={() => { sortOrder = sortOrder === 'desc' ? 'asc' : 'desc'; handleSortChange(); }}
-              class="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              {sortOrder === 'desc' ? '↓' : '↑'}
-              {sortOrder === 'desc' ? 'Newest' : 'Oldest'}
-            </button>
           </div>
         </div>
 
@@ -99,8 +163,12 @@
         {#if totalCount > 0}
           <div class="bg-white/60 backdrop-blur-sm rounded-lg border border-gray-200/50 px-4 py-2">
             <div class="flex items-center justify-between text-sm text-gray-600">
-              <span>Showing {((currentPage - 1) * perPage) + 1}-{Math.min(currentPage * perPage, totalCount)} of {totalCount} images</span>
-              <span>Page {currentPage} of {totalPages}</span>
+              <span>Showing {images.length} of {totalCount} images</span>
+              {#if hasMore}
+                <span class="text-purple-600">Scroll down to load more</span>
+              {:else}
+                <span class="text-gray-500">All images loaded</span>
+              {/if}
             </div>
           </div>
         {/if}
@@ -230,50 +298,33 @@
           {/each}
         </div>
 
-        <!-- Pagination -->
-        {#if totalPages > 1}
+        <!-- Loading More Indicator -->
+        {#if isLoadingMore}
           <div class="mt-8 flex justify-center">
-            <nav class="flex items-center gap-2" aria-label="Pagination">
-              <!-- Previous Button -->
-              <button
-                on:click={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage <= 1}
-                class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            <div class="bg-white/60 backdrop-blur-sm rounded-lg border border-gray-200/50 px-6 py-4">
+              <div class="flex items-center gap-3 text-gray-600">
+                <svg class="animate-spin h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Previous
-              </button>
+                <span class="text-sm font-medium">Loading more images...</span>
+              </div>
+            </div>
+          </div>
+        {/if}
 
-              <!-- Page Numbers -->
-              {#each Array.from({length: Math.min(7, totalPages)}, (_, i) => {
-                const start = Math.max(1, currentPage - 3);
-                const end = Math.min(totalPages, start + 6);
-                return start + i;
-              }).filter(page => page <= totalPages) as page}
-                <button
-                  on:click={() => handlePageChange(page)}
-                  class="inline-flex items-center px-3 py-2 text-sm font-medium border rounded-lg transition-colors {page === currentPage 
-                    ? 'bg-purple-600 text-white border-purple-600' 
-                    : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'}"
-                >
-                  {page}
-                </button>
-              {/each}
-
-              <!-- Next Button -->
-              <button
-                on:click={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage >= totalPages}
-                class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Next
-                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </nav>
+        <!-- Load More Button (fallback for users who prefer clicking) -->
+        {#if hasMore && !isLoadingMore && !isLoading && images.length > 0}
+          <div class="mt-8 flex justify-center">
+            <button
+              on:click={loadMore}
+              class="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+              Load More Images
+            </button>
           </div>
         {/if}
       {/if}
