@@ -14,7 +14,7 @@ export default defineConfig({
 		force: true
 	},
 	ssr: {
-		noExternal: ['@gradio/client']
+		noExternal: ['@gradio/client', 'bits-ui']
 	},
 	define: {
 		global: 'globalThis'

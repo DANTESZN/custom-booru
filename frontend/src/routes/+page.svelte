@@ -3,6 +3,7 @@
   import { authStore } from '$lib/stores/auth';
   import { searchApi } from '$lib/api/search';
   import type { JsonApiResource, Image, AuthState } from '$lib/types';
+  import { tokens } from '$lib/design-system/tokens';
   
   let authState = $state<AuthState>({ user: null, isAuthenticated: false, isLoading: true });
   let recentImages = $state<JsonApiResource<Image>[]>([]);
@@ -63,13 +64,13 @@
             <p class="text-gray-600 mt-2">Discover and manage your beautiful collection</p>
           </div>
           <div class="flex gap-3">
-            <a href="/aliases/create" class="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+            <a href="/aliases/create" class="inline-flex items-center gap-2 px-4 py-2 {tokens.colors.brand.gradient.primary} {tokens.colors.brand.gradient.primaryHover} text-white rounded-lg shadow-md hover:shadow-lg {tokens.transitions.default} {tokens.animations.scaleOnHover}">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
               </svg>
               Add Artist
             </a>
-            <a href="/search" class="inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors">
+            <a href="/search" class="inline-flex items-center gap-2 px-4 py-2 {tokens.colors.glass.white} text-gray-700 rounded-lg border {tokens.colors.glass.border} hover:bg-gray-50 {tokens.transitions.default} {tokens.animations.scaleOnHover} shadow-sm hover:shadow">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
@@ -102,13 +103,13 @@
             <h3 class="text-xl font-semibold text-gray-900 mb-2">No images yet</h3>
             <p class="text-gray-600 mb-6">Start building your collection by adding artists and uploading artwork</p>
             <div class="flex gap-3 justify-center">
-              <a href="/aliases/create" class="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+              <a href="/aliases/create" class="inline-flex items-center gap-2 px-6 py-3 {tokens.colors.brand.gradient.primary} {tokens.colors.brand.gradient.primaryHover} text-white rounded-lg shadow-md hover:shadow-lg {tokens.transitions.default} {tokens.animations.scaleOnHover}">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
                 Create Artist
               </a>
-              <a href="/tags" class="inline-flex items-center gap-2 px-6 py-3 bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors">
+              <a href="/tags" class="inline-flex items-center gap-2 px-6 py-3 {tokens.colors.glass.white} text-gray-700 rounded-lg border {tokens.colors.glass.border} hover:bg-gray-50 {tokens.transitions.default} {tokens.animations.scaleOnHover} shadow-sm hover:shadow">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
                 </svg>
@@ -257,13 +258,13 @@
         
         <!-- CTA Buttons -->
         <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-          <a href="/register" class="inline-flex items-center gap-3 px-8 py-4 rounded-xl text-lg font-semibold text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
+          <a href="/register" class="inline-flex items-center gap-3 px-8 py-4 rounded-xl text-lg font-semibold text-white {tokens.colors.brand.gradient.primary} {tokens.colors.brand.gradient.primaryHover} shadow-lg hover:shadow-xl {tokens.transitions.slow} {tokens.animations.scaleOnHover}">
             <span>Start Your Journey</span>
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
           </a>
-          <a href="/search" class="inline-flex items-center gap-3 px-8 py-4 rounded-xl text-lg font-semibold text-gray-700 bg-white/80 backdrop-blur-sm border border-gray-200 hover:bg-white hover:shadow-lg transition-all duration-300 transform hover:scale-105">
+          <a href="/search" class="inline-flex items-center gap-3 px-8 py-4 rounded-xl text-lg font-semibold text-gray-700 {tokens.colors.glass.white} {tokens.colors.glass.backdrop} border {tokens.colors.glass.border} hover:bg-white hover:shadow-lg {tokens.transitions.slow} {tokens.animations.scaleOnHover}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -400,13 +401,13 @@
         Join CustomBooru today and experience the most beautiful way to manage and discover artwork.
       </p>
       <div class="flex flex-col sm:flex-row gap-4 justify-center">
-        <a href="/register" class="inline-flex items-center gap-3 px-8 py-4 rounded-xl text-lg font-semibold text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
+        <a href="/register" class="inline-flex items-center gap-3 px-8 py-4 rounded-xl text-lg font-semibold text-white {tokens.colors.brand.gradient.primary} {tokens.colors.brand.gradient.primaryHover} shadow-lg hover:shadow-xl {tokens.transitions.slow} {tokens.animations.scaleOnHover}">
           <span>Create Account</span>
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
           </svg>
         </a>
-        <a href="/login" class="inline-flex items-center gap-3 px-8 py-4 rounded-xl text-lg font-semibold text-gray-700 bg-white/80 backdrop-blur-sm border border-gray-200 hover:bg-white hover:shadow-lg transition-all duration-300 transform hover:scale-105">
+        <a href="/login" class="inline-flex items-center gap-3 px-8 py-4 rounded-xl text-lg font-semibold text-gray-700 {tokens.colors.glass.white} {tokens.colors.glass.backdrop} border {tokens.colors.glass.border} hover:bg-white hover:shadow-lg {tokens.transitions.slow} {tokens.animations.scaleOnHover}">
           <span>Sign In</span>
         </a>
       </div>

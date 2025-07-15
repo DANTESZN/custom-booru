@@ -45,6 +45,7 @@
 		"vitest-browser-svelte": "^0.1.0"
 	},
 	"dependencies": {
-		"@gradio/client": "^1.15.5"
+		"@gradio/client": "^1.15.5",
+		"bits-ui": "^2.8.11"
 	}
 }

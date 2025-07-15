@@ -5,7 +5,7 @@
   import { imageApi } from '$lib/api/images';
   import { aliasApi } from '$lib/api/aliases';
   import { authStore } from '$lib/stores/auth';
-  import BatchUploadModal from '$lib/components/BatchUploadModal.svelte';
+  import { Button, Card } from '$lib/ui';
   import type { JsonApiResource, Image, Alias } from '$lib/types';
 
   let aliasId = '';
@@ -18,13 +18,6 @@
   let isLoading = $state(true);
   let error = $state('');
   let saving = $state(false);
-
-  // Form state
-  let selectedImageId = $state('');
-  let selectedRelationshipType = $state('');
-  let relationshipDescription = $state('');
-  let showAddForm = $state(false);
-  let showBatchUpload = $state(false);
 
   onMount(async () => {
     aliasId = $page.params.id;
@@ -50,7 +43,9 @@
 
       // Load relationships and relationship types
       relationships = await imageApi.getRelationships(aliasId, imageId);
+      console.log('Loading relationship types...');
       relationshipTypes = await imageApi.getRelationshipTypes();
+      console.log('Loaded relationship types:', relationshipTypes);
 
       // Load other images from the same alias (for creating relationships)
       const imagesResponse = await imageApi.getByAlias(aliasId, 1, 100);
@@ -72,34 +67,6 @@
     }
   });
 
-  async function addRelationship() {
-    if (!selectedImageId || !selectedRelationshipType) return;
-
-    saving = true;
-    try {
-      await imageApi.addRelationship(
-        aliasId, 
-        imageId, 
-        selectedImageId, 
-        selectedRelationshipType, 
-        relationshipDescription || undefined
-      );
-
-      // Reload relationships
-      relationships = await imageApi.getRelationships(aliasId, imageId);
-      
-      // Reset form
-      selectedImageId = '';
-      selectedRelationshipType = '';
-      relationshipDescription = '';
-      showAddForm = false;
-      
-    } catch (err: any) {
-      console.error('Error adding relationship:', err);
-      error = err.message || 'Failed to add relationship';
-    }
-    saving = false;
-  }
 
   async function removeRelationship(relationshipId: string) {
     if (!confirm('Are you sure you want to remove this relationship?')) return;
@@ -116,15 +83,6 @@
       error = err.message || 'Failed to remove relationship';
     }
     saving = false;
-  }
-
-  function handleBatchUploadSuccess(newRelationships: any[]) {
-    // Reload relationships to show the new ones
-    loadRelationships();
-  }
-
-  function closeBatchUpload() {
-    showBatchUpload = false;
   }
 
   async function loadRelationships() {
@@ -206,133 +164,33 @@
             Create and manage relationships between images for version control, series, themes, and more.
           </p>
         </div>
-        <div class="mt-4 flex md:mt-0 md:ml-4 space-x-3">
-          <button
-            on:click={() => showBatchUpload = true}
-            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transform hover:scale-105 transition-all duration-200"
-          >
-            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            Upload & Link Images
-          </button>
-          <button
-            on:click={() => showAddForm = !showAddForm}
-            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Add Relationship
-          </button>
-        </div>
       </div>
 
       <!-- Current Image Info -->
-      <div class="bg-white shadow rounded-lg mb-8">
-        <div class="px-6 py-4">
-          <div class="flex items-center space-x-4">
-            <div class="flex-shrink-0">
-              {#if image.attributes.file_url}
-                <img src={image.attributes.file_url} alt={image.attributes.title} class="h-16 w-16 object-cover rounded-lg" />
-              {:else}
-                <div class="h-16 w-16 bg-gray-200 rounded-lg flex items-center justify-center">
-                  <svg class="h-8 w-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-              {/if}
-            </div>
-            <div>
-              <h3 class="text-lg font-medium text-gray-900">{image.attributes.title || 'Untitled'}</h3>
-              <p class="text-sm text-gray-500">Managing relationships for this image</p>
-            </div>
+      <Card class="mb-8">
+        <div class="flex items-center space-x-4">
+          <div class="flex-shrink-0">
+            {#if image.attributes.file_url}
+              <img src={image.attributes.file_url} alt={image.attributes.title} class="h-16 w-16 object-cover rounded-lg" />
+            {:else}
+              <div class="h-16 w-16 bg-gray-200 rounded-lg flex items-center justify-center">
+                <svg class="h-8 w-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                </svg>
+              </div>
+            {/if}
+          </div>
+          <div>
+            <h3 class="text-lg font-medium text-gray-900">{image.attributes.title || 'Untitled'}</h3>
+            <p class="text-sm text-gray-500">Managing relationships for this image</p>
           </div>
         </div>
-      </div>
+      </Card>
 
-      <!-- Add Relationship Form -->
-      {#if showAddForm}
-        <div class="bg-white shadow rounded-lg mb-8">
-          <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg leading-6 font-medium text-gray-900">Add New Relationship</h3>
-          </div>
-          <div class="px-6 py-4 space-y-4">
-            <!-- Relationship Type -->
-            <div>
-              <label for="relationship-type" class="block text-sm font-medium text-gray-700">
-                Relationship Type
-              </label>
-              <select
-                id="relationship-type"
-                bind:value={selectedRelationshipType}
-                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">Select a relationship type</option>
-                {#each Object.entries(relationshipTypes) as [type, description]}
-                  <option value={type}>{type} - {description}</option>
-                {/each}
-              </select>
-            </div>
-
-            <!-- Related Image -->
-            <div>
-              <label for="related-image" class="block text-sm font-medium text-gray-700">
-                Related Image
-              </label>
-              <select
-                id="related-image"
-                bind:value={selectedImageId}
-                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">Select an image</option>
-                {#each availableImages as availableImage}
-                  <option value={availableImage.id}>
-                    {availableImage.attributes.title || 'Untitled'} (ID: {availableImage.id})
-                  </option>
-                {/each}
-              </select>
-            </div>
-
-            <!-- Description -->
-            <div>
-              <label for="description" class="block text-sm font-medium text-gray-700">
-                Description (Optional)
-              </label>
-              <input
-                type="text"
-                id="description"
-                bind:value={relationshipDescription}
-                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Optional description for this relationship"
-              />
-            </div>
-
-            <!-- Form Actions -->
-            <div class="flex justify-end space-x-3">
-              <button
-                type="button"
-                on:click={() => showAddForm = false}
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                on:click={addRelationship}
-                disabled={!selectedImageId || !selectedRelationshipType || saving}
-                class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {saving ? 'Adding...' : 'Add Relationship'}
-              </button>
-            </div>
-          </div>
-        </div>
-      {/if}
 
       <!-- Existing Relationships -->
       {#if relationships && relationships.length > 0}
-        <div class="bg-white shadow rounded-lg">
+        <Card>
           <div class="px-6 py-4 border-b border-gray-200">
             <h3 class="text-lg leading-6 font-medium text-gray-900">Current Relationships</h3>
           </div>
@@ -372,15 +230,17 @@
                             {relationship.direction === 'outgoing' ? 'This → Related' : 'Related → This'}
                           </p>
                         </div>
-                        <button
-                          on:click={() => removeRelationship(relationship.id)}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onclick={() => removeRelationship(relationship.id)}
                           disabled={saving}
-                          class="text-red-600 hover:text-red-800 disabled:opacity-50"
+                          class="text-red-600 hover:text-red-800 p-1"
                         >
                           <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
                           </svg>
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   {/each}
@@ -388,65 +248,33 @@
               </div>
             {/each}
           </div>
-        </div>
+        </Card>
       {:else}
-        <div class="bg-white shadow rounded-lg">
+        <Card>
           <div class="px-6 py-12 text-center">
             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
             </svg>
             <h3 class="mt-2 text-sm font-medium text-gray-900">No relationships</h3>
             <p class="mt-1 text-sm text-gray-500">Get started by adding your first image relationship.</p>
-            <div class="mt-6">
-              <div class="flex space-x-3 justify-center">
-                <button
-                  on:click={() => showBatchUpload = true}
-                  class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transform hover:scale-105 transition-all duration-200"
-                >
-                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                  Upload & Link Images
-                </button>
-                <button
-                  on:click={() => showAddForm = true}
-                  class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Add Relationship
-                </button>
-              </div>
-            </div>
           </div>
-        </div>
+        </Card>
       {/if}
 
       <!-- Back Button -->
       <div class="mt-8">
-        <a
-          href="/aliases/{aliasId}/images/{imageId}"
-          class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        <Button
+          variant="secondary"
+          onclick={() => goto(`/aliases/${aliasId}/images/${imageId}`)}
+          class="inline-flex items-center"
         >
           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
           Back to Image
-        </a>
+        </Button>
       </div>
     {/if}
   </div>
 </div>
 
-<!-- Batch Upload Modal -->
-{#if !isLoading && aliasId && imageId}
-  <BatchUploadModal
-    bind:isOpen={showBatchUpload}
-    {aliasId}
-    currentImageId={imageId}
-    {relationshipTypes}
-    onSuccess={handleBatchUploadSuccess}
-    onClose={closeBatchUpload}
-  />
-{/if}

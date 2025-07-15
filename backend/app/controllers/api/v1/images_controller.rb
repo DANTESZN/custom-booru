@@ -1,4 +1,5 @@
 class Api::V1::ImagesController < Api::V1::BaseController
+  skip_before_action :authenticate_user!, only: [:relationship_types]
   before_action :set_alias, except: [:relationship_types]
   before_action :set_image, only: [:show, :update, :destroy, :add_tags, :remove_tags, :relationships, :add_relationship, :remove_relationship]
 

@@ -1,0 +1,105 @@
+{
+  "name": "@custombooru/design-system",
+  "version": "1.0.0",
+  "description": "A comprehensive design system for CustomBooru application built with Svelte 5, TypeScript, and Tailwind CSS",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./tokens": "./tokens.ts",
+    "./components": "../ui/index.ts",
+    "./utils": "../ui/utils.ts",
+    "./types": "../ui/types.ts"
+  },
+  "files": [
+    "index.ts",
+    "tokens.ts",
+    "README.md",
+    "STYLE_GUIDE.md",
+    "../ui/"
+  ],
+  "keywords": [
+    "design-system",
+    "svelte",
+    "typescript",
+    "tailwindcss",
+    "ui-components",
+    "glass-morphism",
+    "custombooru"
+  ],
+  "author": "CustomBooru Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/custombooru/custombooru.git",
+    "directory": "frontend/src/lib/design-system"
+  },
+  "bugs": {
+    "url": "https://github.com/custombooru/custombooru/issues"
+  },
+  "homepage": "https://github.com/custombooru/custombooru#readme",
+  "peerDependencies": {
+    "svelte": "^5.0.0",
+    "tailwindcss": "^3.0.0",
+    "@tailwindcss/forms": "^0.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^18.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "browserslist": [
+    "defaults",
+    "not IE 11"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "vitest",
+    "docs:build": "typedoc --out docs ./index.ts",
+    "docs:serve": "serve docs"
+  },
+  "designSystem": {
+    "version": "1.0.0",
+    "brand": {
+      "name": "CustomBooru",
+      "colors": {
+        "primary": "#a855f7",
+        "secondary": "#ec4899"
+      }
+    },
+    "features": {
+      "glassMorphism": true,
+      "darkMode": false,
+      "animations": true,
+      "accessibility": true
+    },
+    "components": {
+      "count": 15,
+      "categories": [
+        "core",
+        "form",
+        "display",
+        "utility"
+      ]
+    },
+    "tokens": {
+      "colors": 50,
+      "spacing": 15,
+      "typography": 12,
+      "breakpoints": 5
+    }
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/custombooru"
+  }
+}

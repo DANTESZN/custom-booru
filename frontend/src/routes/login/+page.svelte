@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { authStore } from '$lib/stores/auth';
 	import { onMount } from 'svelte';
+	import { tokens } from '$lib/design-system/tokens';
 
 	let email = '';
 	let password = '';
@@ -79,7 +80,7 @@
 							type="email"
 							bind:value={email}
 							required
-							class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-gray-900 placeholder-gray-500 transition-all duration-200"
+							class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent {tokens.colors.glass.white} {tokens.colors.glass.backdrop} text-gray-900 placeholder-gray-500 transition-all duration-200 shadow-sm hover:shadow"
 							placeholder="Enter your email"
 						/>
 					</div>
@@ -101,7 +102,7 @@
 							type="password"
 							bind:value={password}
 							required
-							class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-gray-900 placeholder-gray-500 transition-all duration-200"
+							class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent {tokens.colors.glass.white} {tokens.colors.glass.backdrop} text-gray-900 placeholder-gray-500 transition-all duration-200 shadow-sm hover:shadow"
 							placeholder="Enter your password"
 						/>
 					</div>
@@ -123,7 +124,7 @@
 				<button
 					type="submit"
 					disabled={loading}
-					class="w-full flex justify-center items-center gap-3 py-3 px-4 border border-transparent rounded-xl shadow-lg text-base font-medium text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105"
+					class="w-full flex justify-center items-center gap-3 py-3 px-4 border border-transparent rounded-xl shadow-lg text-base font-medium text-white {tokens.colors.brand.gradient.primary} {tokens.colors.brand.gradient.primaryHover} {tokens.focusRing.default} disabled:opacity-50 disabled:cursor-not-allowed {tokens.transitions.default} {tokens.animations.scaleOnHover}"
 				>
 					{#if loading}
 						<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
